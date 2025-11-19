@@ -358,10 +358,7 @@ For additional support:
 
 ## 📞 Contact Information
 
-For questions or support regarding the Basketball League Management System:
-- **System Administrator**: [Contact Details]
-- **Documentation**: This README and inline code comments
-- **Issues**: Report via your issue tracking system
+Jayanta Roy
 
 ---
 
