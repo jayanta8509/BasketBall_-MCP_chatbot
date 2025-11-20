@@ -7,7 +7,7 @@ from form_responses_functions import count_teams_by_division
 from mcp.server.fastmcp import FastMCP
 
 COUNT_SHEET_NAME = "Count"
-mcp = FastMCP("Count_all_data")
+mcp = FastMCP("Registration_detail_count")
 
 # ---------------------------------------------------------
 # Internal helpers
@@ -85,6 +85,7 @@ def _is_division_row(row: Dict[str, Any]) -> bool:
     if div in ("Total Teams", "Revenue"):
         return False
     return True
+
 
 
 # Public functions
@@ -549,6 +550,7 @@ def compare_total_teams_with_registrations() -> Dict[str, Any]:
         "total_confirmed_from_form_responses": total_confirmed,
         "difference": difference,
     }
+
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

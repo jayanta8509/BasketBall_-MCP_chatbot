@@ -773,5 +773,6 @@ def compare_7_8_grade_girls_sheet_with_registrations() -> Dict[str, Any]:
         "only_in_registrations": only_in_regs,
     }
 
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

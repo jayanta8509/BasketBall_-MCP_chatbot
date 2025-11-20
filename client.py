@@ -21,7 +21,7 @@ async def setup_agent():
     """Setup MCP client and AI agent"""
     client = MultiServerMCPClient(
         {
-            "Count_all_data": {
+            "Registration_detail_count": {
                 "command": "python",
                 "args": ["count_functions.py"],
                 "transport": "stdio",

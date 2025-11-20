@@ -1161,5 +1161,6 @@ def get_candidate_teams(
 
     return results
 
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")

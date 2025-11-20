@@ -388,7 +388,7 @@ def get_waitlist_positions_by_division() -> List[Dict[str, Any]]:
 
     return results
 
-
+@mcp.tool()
 def get_waitlist_position_for_team(
     division: str,
     team_name: str,
@@ -530,6 +530,8 @@ def search_waitlist(
                 break
 
     return results
+
+
 
 
 # ---------------------------------------------------------
@@ -799,6 +801,7 @@ def is_candidate_on_any_waitlist(
         "waitlist_sheet_matches": wl_matches,
         "is_on_any_waitlist": is_on_any,
     }
+
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

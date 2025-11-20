@@ -65,13 +65,18 @@ def _load_3rd_grade_values(
 def _load_3rd_grade_boys_block() -> Tuple[List[str], List[Dict[str, Any]]]:
     """
     Internal helper:
-        Parse the '3rd Grade Boys' block, which looks like:
+        Parse the '3rd Grade Boys' block.
 
-            Row 0: ['Email', 'First Name', 'Last Name', 'Phone', 'Team Name', 'Team #']
-            Row 1+: data rows
-            Then a blank row before '3rd Grade Girls' section.
+    Actual layout in the sheet:
 
-        We treat Row 0 as headers, rows below until a fully blank row as data.
+        Row 0: label row:
+            ['3rd Grade Boys', '', '', '', '', '']
+        Row 1: header row:
+            ['Email', 'First Name', 'Last Name', 'Phone', 'Team Name', 'Team #']
+        Rows 2..N: data rows for 3rd Grade Boys, until a completely blank row.
+
+    This function is robust to the possibility that the sheet might *not* have
+    the label row; in that case it falls back to treating Row 0 as the header.
 
     Returns:
         (headers, list_of_row_dicts)
@@ -80,11 +85,22 @@ def _load_3rd_grade_boys_block() -> Tuple[List[str], List[Dict[str, Any]]]:
     if not values:
         return [], []
 
-    headers = values[0]
-    rows: List[Dict[str, Any]] = []
+    # Detect if the first row is a label like "3rd Grade Boys"
+    first_cell = str(values[0][0]).strip().lower() if values[0] else ""
+    if first_cell == "3rd grade boys":
+        header_index = 1
+    else:
+        header_index = 0
 
-    for row in values[1:]:
-        # Stop at first completely empty row
+    if header_index >= len(values):
+        return [], []
+
+    headers = values[header_index]
+    data_rows = values[header_index + 1 :]
+
+    rows: List[Dict[str, Any]] = []
+    for row in data_rows:
+        # Stop at first completely empty row (this separates boys & girls blocks)
         if not any(str(c).strip() for c in row):
             break
 
@@ -186,30 +202,6 @@ def list_3rd_grade_boys_teams() -> List[Dict[str, Any]]:
     Purpose:
         List all 3rd Grade Boys teams with coach/contact information and
         team number, as stored in the '3rd Grade' sheet.
-
-    Args:
-        None
-
-    Returns:
-        List[dict]:
-            Each record looks like:
-            {
-                "Email": str | None,
-                "First Name": str | None,
-                "Last Name": str | None,
-                "Phone": str | None,       # normalized digits-only
-                "Team Name": str | None,
-                "Team #": int | None,
-            }
-
-    Example usage:
-        >>> boys = list_3rd_grade_boys_teams()
-        >>> for t in boys:
-        ...     print(t["Team #"], t["Team Name"], t["First Name"], t["Email"])
-
-    Example questions this function helps answer:
-        - "What are all the 3rd grade boys teams and their coaches?"
-        - "Who coaches 3rd grade boys team #3?"
     """
     headers, rows = _load_3rd_grade_boys_block()
     _ = headers
@@ -231,69 +223,23 @@ def list_3rd_grade_boys_teams() -> List[Dict[str, Any]]:
 
     return results
 
+
 @mcp.tool()
 def get_3rd_grade_boys_team_by_number(
     team_number: int,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Purpose:
-        Look up a single 3rd Grade Boys team by its assigned team number.
-
-    Args:
-        team_number (int):
-            The team number to search for (e.g. 1, 2, 3, ...).
-
-    Returns:
-        dict | None:
-            The matching team record (same structure as list_3rd_grade_boys_teams),
-            or None if no team has that number.
-
-    Example usage:
-        >>> team = get_3rd_grade_boys_team_by_number(4)
-        >>> print(team)
-        {'Email': '...', 'First Name': 'Steve', 'Last Name': 'Helton',
-         'Phone': '5732806045', 'Team Name': 'Eldon 3rd Grade B', 'Team #': 4}
-
-    Example questions this function helps answer:
-        - "Who is 3rd Grade Boys Team #5?"
-        - "Which team name is assigned to slot #2 for 3rd grade boys?"
-    """
     boys = list_3rd_grade_boys_teams()
     for team in boys:
         if team.get("Team #") == team_number:
             return team
     return None
 
+
 @mcp.tool()
 def find_3rd_grade_boys_teams_by_name(
     query: str,
     exact: bool = False,
 ) -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        Search 3rd Grade Boys teams by team name, either exact match
-        or substring match.
-
-    Args:
-        query (str):
-            Team name or substring to search for (case-insensitive).
-        exact (bool):
-            If True, require exact match of team name.
-            If False, allow partial/contains match.
-
-    Returns:
-        List[dict]:
-            Matching team records (same format as list_3rd_grade_boys_teams).
-
-    Example usage:
-        >>> matches = find_3rd_grade_boys_teams_by_name("Eldon", exact=False)
-        >>> for m in matches:
-        ...     print(m["Team #"], m["Team Name"])
-
-    Example questions this function helps answer:
-        - "Show me all 3rd grade boys teams with 'Eldon' in the name."
-        - "Is there a 3rd grade boys team called 'LOZ Tigers'?"
-    """
     boys = list_3rd_grade_boys_teams()
     q = query.strip().lower()
     results: List[Dict[str, Any]] = []
@@ -315,34 +261,6 @@ def find_3rd_grade_boys_teams_by_name(
 # ---------------------------------------------------------
 @mcp.tool()
 def list_3rd_grade_girls_teams() -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        List all 3rd Grade Girls teams and their team numbers from the
-        '3rd Grade' sheet.
-
-        Note: Unlike the boys block, this section typically only contains
-        team names and numbers (coach contact info comes from registrations).
-
-    Args:
-        None
-
-    Returns:
-        List[dict]:
-            Each record:
-            {
-                "Team Name": str | None,
-                "Team #": int | None,
-            }
-
-    Example usage:
-        >>> girls = list_3rd_grade_girls_teams()
-        >>> for t in girls:
-        ...     print(t["Team #"], t["Team Name"])
-
-    Example questions this function helps answer:
-        - "Which teams are in the 3rd grade girls bracket?"
-        - "What team name is 3rd Grade Girls Team #3?"
-    """
     headers, rows = _load_3rd_grade_girls_block()
     _ = headers
     if not rows:
@@ -363,27 +281,6 @@ def list_3rd_grade_girls_teams() -> List[Dict[str, Any]]:
 def get_3rd_grade_girls_team_by_number(
     team_number: int,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Purpose:
-        Look up a 3rd Grade Girls team by its assigned team number.
-
-    Args:
-        team_number (int):
-            The team number to search for.
-
-    Returns:
-        dict | None:
-            Matching team record or None if no team has that number.
-
-    Example usage:
-        >>> team = get_3rd_grade_girls_team_by_number(4)
-        >>> print(team)
-        {'Team Name': 'Lady Indians Maroon', 'Team #': 4}
-
-    Example questions this function helps answer:
-        - "Who is 3rd Grade Girls Team #5?"
-        - "Which team is in slot #2 for 3rd Grade Girls?"
-    """
     girls = list_3rd_grade_girls_teams()
     for team in girls:
         if team.get("Team #") == team_number:
@@ -395,30 +292,6 @@ def find_3rd_grade_girls_teams_by_name(
     query: str,
     exact: bool = False,
 ) -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        Search 3rd Grade Girls teams by team name, either exact or partial.
-
-    Args:
-        query (str):
-            Team name or substring to search for.
-        exact (bool):
-            If True, require exact match (case-insensitive).
-            If False, allow partial match.
-
-    Returns:
-        List[dict]:
-            Matching team records with "Team Name" and "Team #".
-
-    Example usage:
-        >>> matches = find_3rd_grade_girls_teams_by_name("Eugene", exact=False)
-        >>> for m in matches:
-        ...     print(m["Team #"], m["Team Name"])
-
-    Example questions this function helps answer:
-        - "Are there any 3rd grade girls teams with 'Eugene' in the name?"
-        - "Is 'LOZ Tigers' a 3rd grade girls team?"
-    """
     girls = list_3rd_grade_girls_teams()
     q = query.strip().lower()
     results: List[Dict[str, Any]] = []
@@ -435,42 +308,12 @@ def find_3rd_grade_girls_teams_by_name(
     return results
 
 
+
 # ---------------------------------------------------------
 # Combined 3rd Grade helpers
 # ---------------------------------------------------------
 @mcp.tool()
 def list_all_3rd_grade_teams() -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        List all 3rd Grade teams (boys and girls) in a unified structure.
-
-    Args:
-        None
-
-    Returns:
-        List[dict]:
-            Each record:
-            {
-                "division": "3rd Boys" | "3rd Girls",
-                "team_name": str | None,
-                "team_number": int | None,
-                "coach_first_name": str | None,
-                "coach_last_name": str | None,
-                "coach_email": str | None,
-                "coach_phone": str | None,
-            }
-
-            For girls teams, coach_* fields may be None (unless filled manually).
-
-    Example usage:
-        >>> all_teams = list_all_3rd_grade_teams()
-        >>> for t in all_teams:
-        ...     print(t["division"], t["team_number"], t["team_name"])
-
-    Example questions this function helps answer:
-        - "Show me all 3rd grade teams (boys and girls) with numbers."
-        - "How many total 3rd grade teams do we have in brackets?"
-    """
     boys = list_3rd_grade_boys_teams()
     girls = list_3rd_grade_girls_teams()
 
@@ -502,7 +345,6 @@ def list_all_3rd_grade_teams() -> List[Dict[str, Any]]:
             }
         )
 
-    # Sort by division then team_number
     results.sort(key=lambda x: (x["division"], x["team_number"] or 0))
     return results
 
@@ -511,31 +353,6 @@ def find_3rd_grade_team_by_name_any_division(
     query: str,
     exact: bool = False,
 ) -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        Search for a 3rd grade team by name across both 3rd Boys and
-        3rd Girls blocks.
-
-    Args:
-        query (str):
-            Team name or substring to search for.
-        exact (bool):
-            If True, require exact match.
-            If False, allow partial match.
-
-    Returns:
-        List[dict]:
-            Unified records, like list_all_3rd_grade_teams entries.
-
-    Example usage:
-        >>> matches = find_3rd_grade_team_by_name_any_division("Eldon", exact=False)
-        >>> for m in matches:
-        ...     print(m["division"], m["team_number"], m["team_name"])
-
-    Example questions this function helps answer:
-        - "Is there any 3rd grade team named 'Eldon 3rd Grade A' (boys or girls)?"
-        - "Find all 3rd grade teams with 'LOZ' in the name."
-    """
     all_teams = list_all_3rd_grade_teams()
     q = query.strip().lower()
     results: List[Dict[str, Any]] = []
@@ -553,32 +370,6 @@ def find_3rd_grade_team_by_name_any_division(
 
 @mcp.tool()
 def find_3rd_grade_empty_team_slots() -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        Identify 3rd grade bracket slots that exist as a team number but
-        do not have a team name assigned (e.g. Team #9, Team #10 with no
-        name in the Girls block).
-
-    Args:
-        None
-
-    Returns:
-        List[dict]:
-            {
-                "division": "3rd Boys" | "3rd Girls",
-                "team_number": int,
-                "reason": str,   # e.g. "missing team name"
-            }
-
-    Example usage:
-        >>> gaps = find_3rd_grade_empty_team_slots()
-        >>> for g in gaps:
-        ...     print(g["division"], g["team_number"], g["reason"])
-
-    Example questions this function helps answer:
-        - "Do we have unassigned 3rd grade team numbers?"
-        - "Which slots in the 3rd grade bracket are placeholders only?"
-    """
     results: List[Dict[str, Any]] = []
 
     # Boys: we treat missing team name as "empty" only if # is present
@@ -609,7 +400,6 @@ def find_3rd_grade_empty_team_slots() -> List[Dict[str, Any]]:
                 }
             )
 
-    # Sort for readability
     results.sort(key=lambda x: (x["division"], x["team_number"]))
     return results
 
@@ -623,37 +413,6 @@ def get_3rd_grade_team_registration_details(
     division: str,
     include_waitlist: bool = True,
 ) -> List[Dict[str, Any]]:
-    """
-    Purpose:
-        Given a team name and a 3rd-grade division ("3rd Boys" or "3rd Girls"),
-        fetch the full registration details from 'Form Responses 1'. This links
-        the bracket sheet to the original registration data.
-
-    Args:
-        team_name (str):
-            Team name to look up (case-insensitive exact match).
-        division (str):
-            "3rd Boys" or "3rd Girls".
-        include_waitlist (bool):
-            If True, include waitlisted registrations in the search.
-            If False, only include confirmed teams.
-
-    Returns:
-        List[dict]:
-            Registration records returned from get_teams_by_division(), filtered
-            by team_name equality.
-
-    Example usage:
-        >>> regs = get_3rd_grade_team_registration_details(
-        ...     "Eldon 3rd Grade A", "3rd Boys"
-        ... )
-        >>> for r in regs:
-        ...     print(r["team_name"], r["contact_email"], r["division"])
-
-    Example questions this function helps answer:
-        - "Show the registration info for 'Eldon 3rd Grade A' in 3rd Boys."
-        - "What email and phone are attached to the 3rd Girls team 'Eugene Eagles 1'?"
-    """
     division = division.strip()
     if division not in ("3rd Boys", "3rd Girls"):
         raise ValueError("division must be '3rd Boys' or '3rd Girls'")
@@ -671,36 +430,6 @@ def get_3rd_grade_team_registration_details(
 
 @mcp.tool()
 def compare_3rd_grade_boys_sheet_with_registrations() -> Dict[str, Any]:
-    """
-    Purpose:
-        Compare the 3rd Grade Boys bracket sheet (team names) with the
-        'Form Responses 1' registrations for division "3rd Boys". Detect:
-
-        - teams present in the bracket sheet but not in registrations
-        - teams present in registrations but not on the bracket sheet
-
-    Args:
-        None
-
-    Returns:
-        dict:
-            {
-                "sheet_team_names": List[str],
-                "registration_team_names": List[str],
-                "only_in_sheet": List[str],
-                "only_in_registrations": List[str],
-            }
-
-    Example usage:
-        >>> diff = compare_3rd_grade_boys_sheet_with_registrations()
-        >>> print("Only in sheet:", diff["only_in_sheet"])
-        >>> print("Only in registrations:", diff["only_in_registrations"])
-
-    Example questions this function helps answer:
-        - "Does the 3rd Grade Boys bracket match the registered teams?"
-        - "Are we missing any registered teams on the 3rd Grade Boys sheet?"
-    """
-    # Sheet teams
     boys_sheet = list_3rd_grade_boys_teams()
     sheet_names = sorted(
         {
@@ -710,7 +439,6 @@ def compare_3rd_grade_boys_sheet_with_registrations() -> Dict[str, Any]:
         }
     )
 
-    # Registration teams
     reg_teams = get_teams_by_division("3rd Boys", include_waitlist=True)
     reg_names = sorted(
         {
@@ -732,27 +460,6 @@ def compare_3rd_grade_boys_sheet_with_registrations() -> Dict[str, Any]:
 
 @mcp.tool()
 def compare_3rd_grade_girls_sheet_with_registrations() -> Dict[str, Any]:
-    """
-    Purpose:
-        Compare 3rd Grade Girls bracket sheet with registrations in division
-        "3rd Girls" from 'Form Responses 1'.
-
-    Args:
-        None
-
-    Returns:
-        dict:
-            Same structure as compare_3rd_grade_boys_sheet_with_registrations().
-
-    Example usage:
-        >>> diff = compare_3rd_grade_girls_sheet_with_registrations()
-        >>> print("Only in sheet:", diff["only_in_sheet"])
-        >>> print("Only in registrations:", diff["only_in_registrations"])
-
-    Example questions this function helps answer:
-        - "Does the 3rd Grade Girls bracket reflect all registered teams?"
-        - "Are any 3rd grade girls teams missing from the bracket sheet?"
-    """
     girls_sheet = list_3rd_grade_girls_teams()
     sheet_names = sorted(
         {
