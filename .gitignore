@@ -2,7 +2,8 @@ service_account.json
 env
 __pycache__
 .env
-
+venv
+/venv
 nohup uvicorn app:app --host 0.0.0.0 --port 8032 --workers 4 > app.log 2>&1 &
 
 191.101.0.166

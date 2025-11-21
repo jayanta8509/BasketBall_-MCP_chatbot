@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from collections import defaultdict
 
 from sheets_client import get_default_client
 from mcp.server.fastmcp import FastMCP
@@ -1161,6 +1162,121 @@ def get_candidate_teams(
 
     return results
 
+@mcp.tool()
+def list_coaches_with_multiple_divisions(
+    include_waitlist: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Purpose:
+        Find all coaches who have registered teams in more than one division
+        (e.g. both '3rd Boys' and '5th Girls') and return their *divisions*,
+        not just the team names.
+
+    Args:
+        include_waitlist (bool):
+            If True, include waitlisted registrations.
+            If False, only include non-waitlist teams.
+
+    Returns:
+        List[dict]:
+            Each record:
+            {
+                "contact_first_name": str | None,
+                "contact_last_name": str | None,
+                "contact_email": str | None,
+                "contact_phone": str | None,
+                "divisions": List[str],      # DISTINCT division names
+                "teams": List[str],          # team names for reference
+            }
+
+        'divisions' is what the client actually cares about.
+    """
+
+    all_divisions = [
+        "3rd Boys",
+        "3rd Girls",
+        "4th Boys",
+        "4th Girls",
+        "5th Boys",
+        "5th Girls",
+        "6th Boys",
+        "6th Girls",
+        "7/8 Boys",
+        "7/8 Girls",
+    ]
+
+    all_teams: List[Dict[str, Any]] = []
+
+    for div in all_divisions:
+        try:
+            teams = get_teams_by_division(div, include_waitlist=include_waitlist)
+        except Exception:
+            continue
+
+        for t in teams:
+            div_value = t.get("division")
+            if isinstance(div_value, list):
+                division_name = div_value[0] if div_value else None
+            else:
+                division_name = div_value
+
+            if not division_name:
+                division_name = div 
+
+            copy_t = dict(t)  
+            copy_t["__division_name"] = str(division_name).strip()
+            all_teams.append(copy_t)
+
+    coach_map: Dict[str, Dict[str, Any]] = {}
+    coach_divisions: Dict[str, set] = defaultdict(set)
+    coach_teams: Dict[str, List[str]] = defaultdict(list)
+
+    for t in all_teams:
+        
+        email = (t.get("contact_email") or t.get("email") or "").strip().lower()
+        phone = (t.get("contact_phone") or "").strip()
+        first = (t.get("contact_first_name") or "").strip()
+        last = (t.get("contact_last_name") or "").strip()
+        team_name = (t.get("team_name") or "").strip()
+        division_name = (t.get("__division_name") or "").strip()
+
+        if not email:
+            email = f"{first}|{last}|{phone}".lower()
+
+        if email not in coach_map:
+            coach_map[email] = {
+                "contact_first_name": first or None,
+                "contact_last_name": last or None,
+                "contact_email": t.get("contact_email") or t.get("email"),
+                "contact_phone": phone or None,
+            }
+
+        if division_name:
+            coach_divisions[email].add(division_name)
+
+        if team_name:
+            coach_teams[email].append(team_name)
+
+    results: List[Dict[str, Any]] = []
+    for key, base in coach_map.items():
+        divs = sorted(coach_divisions[key])
+        if len(divs) > 1:
+            results.append(
+                {
+                    **base,
+                    "divisions": divs,
+                    "teams": sorted(set(coach_teams[key])),
+                }
+            )
+
+    results.sort(
+        key=lambda r: (
+            (r.get("contact_last_name") or "").lower(),
+            (r.get("contact_first_name") or "").lower(),
+        )
+    )
+
+    return results
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
